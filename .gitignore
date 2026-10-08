@@ -1,0 +1,9 @@
+build/
+dist/
+output.txt
+core
+core.*
+*.o
+*.d
+*~
+.*.swp
