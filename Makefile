@@ -2,7 +2,11 @@
 # Targets follow docs/conventions.md section 3: all, debug, test, test-long,
 # check, run, dist, clean.
 
-CC ?= gcc
+# make predefines CC as cc, so ?= alone would never pick gcc; override only
+# make's own default and leave a CC given on the command line or environment.
+ifeq ($(origin CC),default)
+CC := gcc
+endif
 
 # -std=c99 is the course floor. _POSIX_C_SOURCE=200809L exposes pthreads,
 # semaphores, sleep and strtol's errno contract under strict C99. -pthread
@@ -84,7 +88,11 @@ run: $(PROGRAM)
 # Makefile), then a build inside it proves the bundle compiles on its own.
 define DIST_MAKEFILE
 # Flat Makefile for the Gradescope submission: builds presidential_debate here.
-CC ?= gcc
+# make predefines CC as cc, so ?= alone would never pick gcc; override only
+# make's own default and leave a CC given on the command line or environment.
+ifeq ($(origin CC),default)
+CC := gcc
+endif
 CFLAGS ?= -std=c99 -D_POSIX_C_SOURCE=200809L -pthread -Wall -Wextra -O2
 LDFLAGS ?= -pthread
 
