@@ -10,8 +10,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 enum {
+    NUM_CALLS = 200,          /* phone-call threads created for the debate */
+    QUESTION_SECONDS = 1,     /* the spec's "sleeping for 1 second (sleep(3))" */
+    BUSY_RETRY_SECONDS = 1,   /* the spec's "try again in 1 second" */
     MESSAGE_CAPACITY = 128    /* longest template plus a caller id, with room */
 };
 
@@ -40,6 +44,7 @@ static sem_t id_lock;             /* binary semaphore: the only guard of next_id
 static int NUM_OPERATORS = 2;
 static int NUM_LINES = 5;
 static int connected = 0;         /* callers currently holding a phone line */
+static int next_id = 0;           /* last caller id handed out; ids run 1..NUM_CALLS */
 
 /* Report a failed call on stderr and end the process; error is an errno value. */
 static void die(const char *what, int error) {
@@ -166,11 +171,96 @@ static void announce(int id, CallStage stage) {
                 "pthread_setcancelstate");
 }
 
+/* Sleep for the whole duration even if a signal cuts one sleep short. */
+static void sleep_fully(unsigned int seconds) {
+    while (seconds > 0) {
+        seconds = sleep(seconds);
+    }
+}
+
+/* Keep trying for a line until one is free. */
+static void acquire_line(void) {
+    while (!try_claim_line()) {
+        sleep_fully(BUSY_RETRY_SECONDS);
+    }
+}
+
+/* Hold an operator for QUESTION_SECONDS and announce both ends of the exchange. */
+static void propose_question(int id) {
+    wait_on(&operators);
+    announce(id, STAGE_SPEAKING);
+    sleep_fully(QUESTION_SECONDS);
+    announce(id, STAGE_PROPOSED);
+    signal_on(&operators);
+}
+
+/*
+ * Thread function for one phone call: takes the next caller id, then walks
+ * the spec's steps. The hang-up line is printed before the line is released
+ * so the trace is a sound witness of the line limit (docs/design.md section 3).
+ */
+static void *phonecall(void *vargp) {
+    int id;
+    (void)vargp;
+    wait_on(&id_lock);
+    id = ++next_id;
+    signal_on(&id_lock);
+    announce(id, STAGE_ATTEMPTING);
+    acquire_line();
+    announce(id, STAGE_CONNECTED);
+    propose_question(id);
+    announce(id, STAGE_HUNG_UP);
+    release_line();
+    return NULL;
+}
+
+/* Thread function for the debate clock. @param vargp points at the length in seconds. */
+static void *debate_timer(void *vargp) {
+    const unsigned int *seconds = vargp;
+    sleep_fully(*seconds);
+    return NULL;
+}
+
+/* Create every phone-call thread. */
+static void start_calls(pthread_t calls[NUM_CALLS]) {
+    size_t i;
+    for (i = 0; i < NUM_CALLS; i++) {
+        check_error(pthread_create(&calls[i], NULL, phonecall, NULL),
+                    "pthread_create phonecall");
+    }
+}
+
+/* Cancel every phone-call thread, then join each so none outlives this call. */
+static void end_calls(pthread_t calls[NUM_CALLS]) {
+    size_t i;
+    for (i = 0; i < NUM_CALLS; i++) {
+        check_error(pthread_cancel(calls[i]), "pthread_cancel phonecall");
+    }
+    for (i = 0; i < NUM_CALLS; i++) {
+        check_error(pthread_join(calls[i], NULL), "pthread_join phonecall");
+    }
+}
+
+/* Block until the timer thread has slept for the debate length. */
+static void run_debate(unsigned int seconds) {
+    pthread_t timer;
+    check_error(pthread_create(&timer, NULL, debate_timer, &seconds),
+                "pthread_create timer");
+    check_error(pthread_join(timer, NULL), "pthread_join timer");
+}
+
 int main(int argc, char *argv[]) {
+    pthread_t calls[NUM_CALLS];
     unsigned int seconds;
     if (argc != 2 || !parse_debate_seconds(argv[1], &seconds)) {
         print_usage(argc > 0 ? argv[0] : "presidential_debate");
         return EXIT_FAILURE;
     }
+    check_errno(setvbuf(stdout, NULL, _IOLBF, 0) != 0, "setvbuf");
+    initialize_semaphores();
+    start_calls(calls);
+    run_debate(seconds);
+    end_calls(calls);
+    destroy_semaphores();
     return EXIT_SUCCESS;
 }

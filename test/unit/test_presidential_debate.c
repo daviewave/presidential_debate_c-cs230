@@ -111,6 +111,36 @@ static void test_critical_sections_release_the_lock(void) {
     destroy_semaphores();
 }
 
+static void test_phonecall_takes_unique_ids_and_frees_its_line(void) {
+    pthread_t calls[3];
+    size_t i;
+    initialize_semaphores();
+    connected = 0;
+    next_id = 0;
+    for (i = 0; i < 3; i++) {
+        CHECK_EQ_INT(pthread_create(&calls[i], NULL, phonecall, NULL), 0);
+    }
+    for (i = 0; i < 3; i++) {
+        CHECK_EQ_INT(pthread_join(calls[i], NULL), 0);
+    }
+    CHECK_EQ_INT(next_id, 3);
+    CHECK_EQ_INT(connected, 0);
+    destroy_semaphores();
+}
+
+static void test_debate_timer_returns_after_the_given_seconds(void) {
+    unsigned int zero = 0;
+    CHECK(debate_timer(&zero) == NULL);
+}
+
+static void test_constants_match_the_spec(void) {
+    CHECK_EQ_INT(NUM_CALLS, 200);
+    CHECK_EQ_INT(NUM_LINES, 5);
+    CHECK_EQ_INT(NUM_OPERATORS, 2);
+    CHECK_EQ_INT(QUESTION_SECONDS, 1);
+    CHECK_EQ_INT(BUSY_RETRY_SECONDS, 1);
+}
+
 int main(void) {
     test_parse_debate_seconds_accepts_positive_integers();
     test_parse_debate_seconds_rejects_bad_input();
@@ -121,5 +151,8 @@ int main(void) {
     test_semaphores_start_with_spec_values();
     test_try_claim_line_respects_num_lines();
     test_critical_sections_release_the_lock();
+    test_phonecall_takes_unique_ids_and_frees_its_line();
+    test_debate_timer_returns_after_the_given_seconds();
+    test_constants_match_the_spec();
     CHECK_REPORT("test_presidential_debate");
 }
