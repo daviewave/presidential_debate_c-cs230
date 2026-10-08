@@ -43,7 +43,7 @@
 **Interfaces:**
 - Produces: `make all|debug|test|test-long|check|run|dist|clean`; `build/presidential_debate`; `test/run_tests.sh [long]`; `TEST_CFLAGS` and `CC` env vars honoured by the runner; `check.h` macros `CHECK`, `CHECK_EQ_INT`, `CHECK_EQ_STR`, `CHECK_REPORT`.
 
-- [ ] **Step 1: `.gitignore`**
+- [x] **Step 1: `.gitignore`**
 
 ```
 build/
@@ -57,7 +57,7 @@ core.*
 .*.swp
 ```
 
-- [ ] **Step 2: `Makefile`**
+- [x] **Step 2: `Makefile`**
 
 ```make
 # Makefile for CS230 project 4, presidential_debate.
@@ -171,9 +171,9 @@ clean:
 -include $(DEPENDS)
 ```
 
-- [ ] **Step 3: `test/unit/check.h`** is the harness verbatim from `docs/conventions.md` section 6.
+- [x] **Step 3: `test/unit/check.h`** is the harness verbatim from `docs/conventions.md` section 6.
 
-- [ ] **Step 4: `test/run_tests.sh`**
+- [x] **Step 4: `test/run_tests.sh`**
 
 ```bash
 #!/usr/bin/env bash
@@ -233,9 +233,9 @@ exit $((failures > 0))
 
 Note `"$binary" >/dev/null; report $? ...` under `set -e` must be written as `if "$binary" >/dev/null; then report 0 ...; else report 1 ...; fi` (the real file does this).
 
-- [ ] **Step 5: `README.txt` skeleton** with the section headers from `docs/conventions.md` section 8 and the line `Video: <VIDEO URL TO BE ADDED>`.
+- [x] **Step 5: `README.txt` skeleton** with the section headers from `docs/conventions.md` section 8 and the line `Video: <VIDEO URL TO BE ADDED>`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add .gitignore Makefile test/unit/check.h test/run_tests.sh README.txt docs/
@@ -253,7 +253,7 @@ git commit -m "build: scaffold Makefile, test harness and docs"
 **Interfaces:**
 - Produces: `static int parse_debate_seconds(const char *text, unsigned int *seconds)` returns 1 and stores the value when `text` is a decimal integer in 1..INT_MAX with no sign, no leading whitespace and no trailing characters; else returns 0. `static void print_usage(const char *program)` prints `Usage: <program> <debate seconds>` on stderr. `int main(int argc, char *argv[])` exits `EXIT_FAILURE` after usage when `argc != 2` or parsing fails.
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 ```c
 #define main program_main
@@ -296,11 +296,11 @@ int main(void) {
 }
 ```
 
-- [ ] **Step 2: Run, expect failure** (compile error: `parse_debate_seconds` undeclared).
+- [x] **Step 2: Run, expect failure** (compile error: `parse_debate_seconds` undeclared).
 
 Run: `make test`
 
-- [ ] **Step 3: Minimal implementation** in `src/presidential_debate.c`
+- [x] **Step 3: Minimal implementation** in `src/presidential_debate.c`
 
 ```c
 /*
@@ -347,9 +347,9 @@ int main(int argc, char *argv[]) {
 }
 ```
 
-- [ ] **Step 4: Run, expect pass**: `make test` (e2e scripts do not exist yet; the runner must tolerate their absence until Task 6, so for this task run the unit binary directly: `make && test/run_tests.sh` reports the unit test PASS and the missing e2e scripts FAIL, which is expected until Task 6).
+- [x] **Step 4: Run, expect pass**: `make test` (e2e scripts do not exist yet; the runner must tolerate their absence until Task 6, so for this task run the unit binary directly: `make && test/run_tests.sh` reports the unit test PASS and the missing e2e scripts FAIL, which is expected until Task 6).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/presidential_debate.c test/unit/test_presidential_debate.c
@@ -367,7 +367,7 @@ git commit -m "feat: validate the debate length argument"
 **Interfaces:**
 - Produces: `typedef enum { STAGE_ATTEMPTING, STAGE_CONNECTED, STAGE_SPEAKING, STAGE_PROPOSED, STAGE_HUNG_UP, STAGE_COUNT } CallStage;` `static int format_call_message(char *buffer, size_t capacity, int id, CallStage stage)` returns the length written or -1 if it did not fit; `static void announce(int id, CallStage stage)` prints the line plus newline with cancellation disabled; helpers `static void die(const char *what, int error)`, `static void check_errno(int failed, const char *what)`, `static void check_error(int error, const char *what)`.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```c
 static void test_format_call_message_matches_spec_templates(void) {
@@ -398,9 +398,9 @@ static void test_format_call_message_reports_truncation(void) {
 }
 ```
 
-- [ ] **Step 2: Run, expect compile failure.**
+- [x] **Step 2: Run, expect compile failure.**
 
-- [ ] **Step 3: Implementation**
+- [x] **Step 3: Implementation**
 
 ```c
 #include <pthread.h>
@@ -475,9 +475,9 @@ static void announce(int id, CallStage stage) {
 }
 ```
 
-- [ ] **Step 4: Run, expect pass** (`make && test/run_tests.sh` unit line PASS).
+- [x] **Step 4: Run, expect pass** (`make && test/run_tests.sh` unit line PASS).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -am "feat: format the five trace lines with the caller id"
@@ -494,7 +494,7 @@ git commit -am "feat: format the five trace lines with the caller id"
 **Interfaces:**
 - Produces: the spec globals; `static void initialize_semaphores(void)`, `static void destroy_semaphores(void)`, `static void wait_on(sem_t *semaphore)` (EINTR-safe), `static void signal_on(sem_t *semaphore)`, `static int try_claim_line(void)` (1 if a line was taken), `static void release_line(void)`.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```c
 static void test_try_claim_line_respects_num_lines(void) {
@@ -526,9 +526,9 @@ static void test_semaphores_start_with_spec_values(void) {
 }
 ```
 
-- [ ] **Step 2: Run, expect compile failure.**
+- [x] **Step 2: Run, expect compile failure.**
 
-- [ ] **Step 3: Implementation**
+- [x] **Step 3: Implementation**
 
 ```c
 #include <semaphore.h>
@@ -592,9 +592,9 @@ static void release_line(void) {
 }
 ```
 
-- [ ] **Step 4: Run, expect pass.**
+- [x] **Step 4: Run, expect pass.**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -am "feat: add the spec semaphores and the connected critical sections"
@@ -611,7 +611,7 @@ git commit -am "feat: add the spec semaphores and the connected critical section
 **Interfaces:**
 - Produces: `static void sleep_fully(unsigned int seconds)`, `static void acquire_line(void)`, `static void propose_question(int id)`, `static void *phonecall(void *vargp)`, `static void *debate_timer(void *vargp)` (vargp points at an `unsigned int`), `static void start_calls(pthread_t calls[NUM_CALLS])`, `static void end_calls(pthread_t calls[NUM_CALLS])`, `static void run_debate(unsigned int seconds)`; `main` runs the whole simulation.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```c
 static void test_phonecall_takes_a_unique_id_and_frees_its_line(void) {
@@ -637,9 +637,9 @@ static void test_debate_timer_returns_after_the_given_seconds(void) {
 }
 ```
 
-- [ ] **Step 2: Run, expect compile failure.**
+- [x] **Step 2: Run, expect compile failure.**
 
-- [ ] **Step 3: Implementation**
+- [x] **Step 3: Implementation**
 
 ```c
 #include <unistd.h>
@@ -740,9 +740,9 @@ int main(int argc, char *argv[]) {
 }
 ```
 
-- [ ] **Step 4: Run, expect pass**; also `make run` prints a 3 s trace and exits 0; `./build/presidential_debate 3 | tail -3` shows complete lines.
+- [x] **Step 4: Run, expect pass**; also `make run` prints a 3 s trace and exits 0; `./build/presidential_debate 3 | tail -3` shows complete lines.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -am "feat: run 200 call threads against 5 lines and 2 operators for the debate length"
@@ -759,7 +759,7 @@ git commit -am "feat: run 200 call threads against 5 lines and 2 operators for t
 - Consumes: `$PROGRAM` (default `build/presidential_debate`).
 - Produces: `check_trace.sh <trace file> <expected attempts> <min completed>` exits non-zero with a reason on the first broken invariant; `debate.sh <seconds>` runs the binary with stdout to a file in `$TMPDIR`, asserts exit 0, wall time <= seconds + 2, and calls `check_trace.sh`; `bad_args.sh` asserts non-zero exit and a `Usage:` line on stderr for no argument, `0`, `-3`, `abc`, `3x`, `1 2`.
 
-- [ ] **Step 1: Write `check_trace.sh`**
+- [x] **Step 1: Write `check_trace.sh`**
 
 ```bash
 #!/usr/bin/env bash
@@ -805,7 +805,7 @@ END {
 }' "$trace"
 ```
 
-- [ ] **Step 2: Write `debate.sh`**
+- [x] **Step 2: Write `debate.sh`**
 
 ```bash
 #!/usr/bin/env bash
@@ -832,7 +832,7 @@ test/e2e/check_trace.sh "$trace" 200 "$seconds"
 echo "debate ${seconds}s: exit 0 in ${elapsed}s"
 ```
 
-- [ ] **Step 3: Write `bad_args.sh`**
+- [x] **Step 3: Write `bad_args.sh`**
 
 ```bash
 #!/usr/bin/env bash
@@ -862,9 +862,9 @@ expect_usage 1 2
 echo "bad arguments rejected"
 ```
 
-- [ ] **Step 4: `chmod +x test/e2e/*.sh test/run_tests.sh`; run `make test`** expecting every line PASS; run `make test-long` once (170 s) expecting PASS.
+- [x] **Step 4: `chmod +x test/e2e/*.sh test/run_tests.sh`; run `make test`** expecting every line PASS; run `make test-long` once (170 s) expecting PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add test/e2e
@@ -878,11 +878,11 @@ git commit -m "test: check debate traces end to end"
 **Files:**
 - Modify: `README.txt`
 
-- [ ] **Step 1: Fill README.txt**: overview; build/run; requirements map (each bullet of the spec's "Project Requirements" and the design/style/comments sections mapped to a function name); design notes (termination order, id_lock, QUESTION_SECONDS and the "(3)" reading, hung-up-before-decrement, line buffering); `Video: <VIDEO URL TO BE ADDED>`.
+- [x] **Step 1: Fill README.txt**: overview; build/run; requirements map (each bullet of the spec's "Project Requirements" and the design/style/comments sections mapped to a function name); design notes (termination order, id_lock, QUESTION_SECONDS and the "(3)" reading, hung-up-before-decrement, line buffering); `Video: <VIDEO URL TO BE ADDED>`.
 
-- [ ] **Step 2: Gate**: `make clean && make && make check && make test && make dist`, all exit 0.
+- [x] **Step 2: Gate**: `make clean && make && make check && make test && make dist`, all exit 0.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add README.txt

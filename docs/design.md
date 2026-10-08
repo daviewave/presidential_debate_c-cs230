@@ -75,7 +75,7 @@ unit-tested without threads. `release_line` is its mirror.
 ### What is inside the critical sections, and what is not
 
 Only the touches of `connected` and `next_id` sit between `sem_wait` and
-`sem_post` on a binary semaphore. No `printf`, no `sleep`, no wait on another
+`sem_post` on a binary semaphore. No `puts`, no `sleep`, no wait on another
 semaphore. Two reasons:
 
 1. The rubric awards points for "binary semaphores are used properly not to
@@ -107,7 +107,7 @@ The spec already uses this print-then-release order for operators ("Print a
 message that the question proposal is complete (and update the semaphore)"),
 so the lines step just follows the same pattern. The shared state is still
 updated in a critical section exactly as required; only the position of one
-`printf` moved. README.txt points this out so a grader is not surprised.
+`puts` moved. README.txt points this out so a grader is not surprised.
 
 ### `QUESTION_SECONDS` = 1 versus the spec's "sleep(3)"
 
@@ -165,7 +165,7 @@ A thread cancelled while it holds an operator unit or a line leaves
 `operators` and `connected` at their last values. That is harmless: nothing
 reads them after the join loop and `sem_destroy` does not care about the count.
 
-### Cancellation is disabled around every `printf`
+### Cancellation is disabled around every `puts`
 
 `announce` (the one function that prints a trace line) wraps its `puts` in
 `pthread_setcancelstate(PTHREAD_CANCEL_DISABLE)` / restore. POSIX lists the
@@ -189,7 +189,7 @@ when it is a pipe or file (every test, and any `./presidential_debate 10 >
 out.txt` a grader runs) it is fully buffered by default: up to 4 KiB of trace
 would sit in memory and be written only at exit, so the trace would arrive
 out of time order with respect to what the user sees, and any abnormal end
-would lose it. With line buffering each `printf` of a complete line becomes
+would lose it. With line buffering each `puts` of a complete line becomes
 one `write`, lines never interleave mid-line (stdio holds the stream lock for
 the whole call), and the order in the file is the order the events were
 printed.
@@ -210,7 +210,7 @@ Thread 7 has hung up!
 `[CALLER_ID]` in the spec is a placeholder for the value of `id` ("Note that
 [CALLER_ID] is the value of the id variable"), so the brackets are not printed.
 
-The templates live in one table (`CALL_MESSAGES`, indexed by the `CallStage`
+The templates live in one table (`STAGE_MESSAGES`, indexed by the `CallStage`
 enum) and `format_call_message` renders one into a caller-supplied buffer so
 the unit tests can compare exact strings without a thread or a pipe.
 
@@ -231,9 +231,21 @@ Every `sem_init`, `sem_wait`, `sem_post`, `pthread_create`, `pthread_cancel`,
 `pthread_join` and `pthread_setcancelstate` return value is checked.
 `pthread_*` functions return an error number (they do not set `errno`);
 `sem_*` return -1 and set `errno`. Two tiny helpers keep that distinction in
-one place: `fail_on_errno(int failed, const char *what)` for the `sem_*`
-family and `fail_on_error(int error, const char *what)` for the pthread
-family. Both print `what: strerror` to stderr and `exit(EXIT_FAILURE)`.
+one place: `check_errno(int failed, const char *what)` for the `sem_*`
+family and `check_error(int error, const char *what)` for the pthread
+family. Both hand off to `die(what, error)`, which prints `what: strerror`
+to stderr and calls `exit(EXIT_FAILURE)`. `setvbuf` is not required to set
+`errno`, so its failure reports `EINVAL` explicitly.
+
+`pthread_cancel` on a thread that already returned is legal (the id stays
+valid until joined), but glibc before 2.35 reports it as `ESRCH`. Most call
+threads in a long debate have finished before the timer fires, so
+`cancel_call` treats `ESRCH` as "already done" and only dies on any other
+error. Without that, the program would exit 1 on Ubuntu 20.04 and older
+course VMs while passing here.
+
+`sleep` returns early only if a signal arrives; `sleep_fully` loops on the
+remaining seconds so the question time and the debate length are honoured.
 
 `sem_wait` can return `EINTR` if a signal lands; `wait_on` retries in that
 case so a stray signal cannot make a thread skip its lock.
@@ -250,7 +262,8 @@ cannot reach.
 | --- | --- |
 | `print_usage` | usage line to stderr |
 | `parse_debate_seconds` | validate `argv[1]` into an `unsigned int` |
-| `fail_on_errno`, `fail_on_error` | report and exit on a failed system / pthread call |
+| `die`, `check_errno`, `check_error` | report and exit on a failed system / pthread call |
+| `sleep_fully` | `sleep` that loops over an interrupted sleep |
 | `wait_on`, `signal_on` | `sem_wait` with EINTR retry, `sem_post`, both checked |
 | `format_call_message` | render a `CallStage` template with the id into a buffer |
 | `announce` | print one trace line with cancellation disabled |
@@ -261,7 +274,7 @@ cannot reach.
 | `phonecall` | the thread function (spec name) |
 | `debate_timer` | the timer thread function: sleep for the debate length |
 | `initialize_semaphores`, `destroy_semaphores` | all three `sem_init` / `sem_destroy` |
-| `start_calls`, `end_calls` | create 200 threads; cancel then join 200 threads |
+| `start_calls`, `cancel_call`, `end_calls` | create 200 threads; cancel (tolerating ESRCH) then join 200 threads |
 | `run_debate` | create and join the timer thread |
 | `main` | line-buffer stdout, parse, init, start, run, end, destroy |
 

@@ -72,12 +72,14 @@ Project Requirements
   is the timer thread function.
 * Threads are created, detached, and joined properly. start_calls
   (line 225) creates NUM_CALLS (200) threads in a loop into the pthread_t
-  array declared in main; run_debate (line 245) creates the timer thread
-  and joins it; end_calls (line 234) cancels and then joins every call
-  thread. No thread is detached, deliberately: a detached thread cannot be
-  joined, and joining every thread is the only way to know that no thread
-  can still touch a semaphore before sem_destroy. Every pthread_* return
-  value is checked (check_error, line 63).
+  array declared in main; run_debate (line 256) creates the timer thread
+  and joins it; end_calls (line 245) cancels and then joins every call
+  thread (cancel_call, line 237, accepts ESRCH for a thread that
+  already finished, which glibc before 2.35 reports). No thread is detached,
+  deliberately: a detached thread cannot be joined, and joining every thread
+  is the only way to know that no thread can still touch a semaphore before
+  sem_destroy. Every other pthread_* return value is checked (check_error,
+  line 63).
 * A global variable next_id exists and is properly updated in the thread
   function and used to set the caller's id. static int next_id (line 47);
   phonecall (line 202) increments it inside the id_lock critical section
@@ -113,7 +115,8 @@ Design and Implementation
 * Naming: snake_case functions named for what they do (try_claim_line,
   release_line, propose_question, end_calls), UPPER_SNAKE constants.
 * Global variables are minimized: exactly the five the spec lists plus
-  next_id and its lock, nothing else; all static and commented.
+  next_id and its lock; the only other file-scope object is the constant
+  message table STAGE_MESSAGES. All are static and commented.
 * Control flow: a single retry loop in acquire_line, create/cancel/join
   loops in start_calls and end_calls, no other loops; no unreachable code.
 * Algorithms: the busy test is one compare in a five-line critical section;
@@ -179,7 +182,8 @@ Function list (presidential_debate.c)
   acquire_line, propose_question       the waiting steps of a call
   phonecall                            the call thread function
   debate_timer                         the timer thread function
-  start_calls, end_calls, run_debate   thread creation, cancel/join, timing
+  start_calls, cancel_call, end_calls  thread creation, cancel (ESRCH-tolerant), join
+  run_debate                           create and join the timer thread
   main                                 argument check, buffering, orchestration
 
 Video: <VIDEO URL TO BE ADDED>

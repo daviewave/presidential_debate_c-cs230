@@ -80,7 +80,11 @@ in the POSIX guarantees relied on here.
 - New threads start with cancellation enabled and type deferred; a deferred
   cancellation request is acted on only when the thread next calls a
   cancellation point. `pthread_cancel` returns 0 or an error number (`ESRCH`)
-  and never `EINTR`; it only queues the request, and "joining with a thread is
+  and never `EINTR`; glibc before 2.35 returns `ESRCH` for a joinable thread
+  that has already exited (its kernel tid is zeroed on exit), although POSIX
+  keeps the id valid until it is joined, so `ESRCH` from a cancel of a thread
+  that may have finished is treated as success (`cancel_call`). It only
+  queues the request, and "joining with a thread is
   the only way to know that cancellation has completed". The joined status of
   a cancelled thread is `PTHREAD_CANCELED`.
 - When the request is acted on: cleanup handlers run (LIFO), then
@@ -334,8 +338,8 @@ in the POSIX guarantees relied on here.
   spec's "sleep(3)" aside is read as the manual section number and the README
   notes it. The timer thread sleeps `debate_seconds` once.
 - No signal handlers are installed and `alarm` is never used, so `sleep`
-  cannot return early; the return value is still read and, if nonzero, the
-  thread simply continues (the simulation is approximate by design).
+  cannot return early; the return value is still read and, if nonzero,
+  `sleep_fully` sleeps again for the remainder.
 - `nanosleep` is not needed; the compile line still defines
   `_POSIX_C_SOURCE=200809L` so either would be declared.
 
@@ -365,7 +369,7 @@ in the POSIX guarantees relied on here.
 
 ### Adopted in this project
 
-- `parse_debate_seconds(const char *text, long *out)`: `errno = 0`;
+- `parse_debate_seconds(const char *text, unsigned int *seconds)`: `errno = 0`;
   `strtol(text, &end, 10)`; reject when `end == text` (empty or no digits),
   `*end != '\0'` (trailing garbage such as `10s`), `errno == ERANGE`
   (overflow), or `value <= 0` (zero and negatives). Leading whitespace is
@@ -413,8 +417,9 @@ in the POSIX guarantees relied on here.
 
 - `pthread_t calls[NUM_CALLS]` (200) filled by one `for` loop over
   `pthread_create(&calls[i], NULL, phonecall, NULL)`. A creation failure is
-  reported with `strerror(rc)` on `stderr`; the threads already created are
-  cancelled and joined, the semaphores destroyed, and `EXIT_FAILURE` returned.
+  reported with `strerror(rc)` on `stderr` and the process exits with
+  `EXIT_FAILURE` (`die`); it is a never-expected path and the partial
+  teardown it would need is not worth its own machinery.
 - A separate timer thread is created and joined; its return ends the debate.
 - Shutdown order: for each call thread `pthread_cancel` then `pthread_join`,
   then `sem_destroy` on all three semaphores, then `return EXIT_SUCCESS`.
