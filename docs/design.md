@@ -167,15 +167,19 @@ reads them after the join loop and `sem_destroy` does not care about the count.
 
 ### Cancellation is disabled around every `printf`
 
-`announce` (the one function that prints a trace line) wraps its `printf` in
-`pthread_setcancelstate(PTHREAD_CANCEL_DISABLE)` / restore. POSIX lists
-`printf` among the functions that *may* be cancellation points, and glibc's
-stdio takes a per-stream lock for the duration of the call. A thread cancelled
-inside `printf` would die holding the `stdout` lock, and `exit`'s final flush
-(or any other thread's `printf`) would then deadlock. Disabling cancellation
-for the few microseconds of a print removes the possibility instead of
-relying on one C library's behaviour. The cancel request is not lost: it is
-acted on at the thread's next cancellation point after the state is restored.
+`announce` (the one function that prints a trace line) wraps its `puts` in
+`pthread_setcancelstate(PTHREAD_CANCEL_DISABLE)` / restore. POSIX lists the
+stdio output functions among those that *may* be cancellation points, and in
+glibc they are (they call `write`). stdio takes a per-stream lock for the
+duration of the call; POSIX does not promise that lock is released when a
+thread is cancelled inside the call. glibc happens to release it through a
+cleanup attribute (research.md section 3), so on this platform nothing would
+deadlock, but a line whose `write` was interrupted by cancellation would stay
+buffered and only appear at `exit`, out of order. Disabling cancellation for
+the few microseconds of a print removes both the portability question and the
+late-line case, and leaves `sem_wait` and `sleep` as the only cancellation
+points in a call thread. The cancel request is not lost: it is acted on at
+the thread's next cancellation point after the state is restored.
 
 ## 5. Output
 

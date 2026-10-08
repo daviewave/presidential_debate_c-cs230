@@ -241,9 +241,9 @@ in the POSIX guarantees relied on here.
 
 ### Adopted in this project
 
-- `static int next_id = 1;` at file scope and a binary semaphore
-  `id_lock`. In `phonecall`: `sem_wait(&id_lock); id = next_id++;
-  sem_post(&id_lock);` with `id` an ordinary automatic `int` local to the
+- `static int next_id = 0;` at file scope and a binary semaphore
+  `id_lock`. In `phonecall`: `sem_wait(&id_lock); id = ++next_id;
+  sem_post(&id_lock);` (ids run 1..200) with `id` an ordinary automatic `int` local to the
   thread function, as the spec words it ("incrementing a global variable
   called next_id and assigning it to the id variable inside the thread
   function"). The answer to the spec's "do you need synchronization here?" is
