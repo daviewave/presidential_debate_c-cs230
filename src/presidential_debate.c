@@ -5,8 +5,53 @@
  */
 #include <errno.h>
 #include <limits.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+enum {
+    MESSAGE_CAPACITY = 128    /* longest template plus a caller id, with room */
+};
+
+/* The five trace lines of a call, in the order a call prints them. */
+typedef enum {
+    STAGE_ATTEMPTING,
+    STAGE_CONNECTED,
+    STAGE_SPEAKING,
+    STAGE_PROPOSED,
+    STAGE_HUNG_UP,
+    STAGE_COUNT
+} CallStage;
+
+/* The spec's templates: the text after "Thread <id> " for each CallStage. */
+static const char *const STAGE_MESSAGES[STAGE_COUNT] = {
+    "is attempting to connect ...",
+    "connects to an available line, call ringing ...",
+    "is speaking to an operator.",
+    "has proposed a question for candidates! The operator has left ...",
+    "has hung up!"
+};
+
+/* Report a failed call on stderr and end the process; error is an errno value. */
+static void die(const char *what, int error) {
+    fprintf(stderr, "presidential_debate: %s: %s\n", what, strerror(error));
+    exit(EXIT_FAILURE);
+}
+
+/* die() with errno when failed is non-zero: for calls that return -1 and set errno. */
+static void check_errno(int failed, const char *what) {
+    if (failed) {
+        die(what, errno);
+    }
+}
+
+/* die() when error is non-zero: for pthread calls, which return the error number. */
+static void check_error(int error, const char *what) {
+    if (error != 0) {
+        die(what, error);
+    }
+}
 
 /* Print the usage line on stderr. */
 static void print_usage(const char *program) {
@@ -30,6 +75,36 @@ static int parse_debate_seconds(const char *text, unsigned int *seconds) {
     }
     *seconds = (unsigned int)value;
     return 1;
+}
+
+/*
+ * Render the trace line for one stage of a call into buffer (no newline).
+ * @return the length written, or -1 if capacity was too small.
+ */
+static int format_call_message(char *buffer, size_t capacity, int id, CallStage stage) {
+    int length = snprintf(buffer, capacity, "Thread %d %s", id, STAGE_MESSAGES[stage]);
+    if (length < 0 || (size_t)length >= capacity) {
+        return -1;
+    }
+    return length;
+}
+
+/*
+ * Print one trace line for the caller. Cancellation is off while printing so
+ * a cancelled thread never dies inside stdio (docs/design.md section 4).
+ */
+static void announce(int id, CallStage stage) {
+    char message[MESSAGE_CAPACITY];
+    int previous_state;
+    int ignored_state;
+    if (format_call_message(message, sizeof message, id, stage) < 0) {
+        die("format_call_message", EOVERFLOW);
+    }
+    check_error(pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &previous_state),
+                "pthread_setcancelstate");
+    check_errno(puts(message) == EOF, "puts");
+    check_error(pthread_setcancelstate(previous_state, &ignored_state),
+                "pthread_setcancelstate");
 }
 
 int main(int argc, char *argv[]) {

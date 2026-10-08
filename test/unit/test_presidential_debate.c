@@ -35,8 +35,46 @@ static void test_parse_debate_seconds_rejects_bad_input(void) {
     CHECK_EQ_INT(seconds, 42);
 }
 
+static void test_format_call_message_matches_spec_templates(void) {
+    char line[MESSAGE_CAPACITY];
+    CHECK(format_call_message(line, sizeof line, 7, STAGE_ATTEMPTING) > 0);
+    CHECK_EQ_STR(line, "Thread 7 is attempting to connect ...");
+    CHECK(format_call_message(line, sizeof line, 7, STAGE_CONNECTED) > 0);
+    CHECK_EQ_STR(line, "Thread 7 connects to an available line, call ringing ...");
+    CHECK(format_call_message(line, sizeof line, 7, STAGE_SPEAKING) > 0);
+    CHECK_EQ_STR(line, "Thread 7 is speaking to an operator.");
+    CHECK(format_call_message(line, sizeof line, 7, STAGE_PROPOSED) > 0);
+    CHECK_EQ_STR(line, "Thread 7 has proposed a question for candidates! The operator has left ...");
+    CHECK(format_call_message(line, sizeof line, 7, STAGE_HUNG_UP) > 0);
+    CHECK_EQ_STR(line, "Thread 7 has hung up!");
+}
+
+static void test_format_call_message_uses_the_given_id(void) {
+    char line[MESSAGE_CAPACITY];
+    CHECK(format_call_message(line, sizeof line, 1, STAGE_HUNG_UP) > 0);
+    CHECK_EQ_STR(line, "Thread 1 has hung up!");
+    CHECK(format_call_message(line, sizeof line, 200, STAGE_HUNG_UP) > 0);
+    CHECK_EQ_STR(line, "Thread 200 has hung up!");
+}
+
+static void test_format_call_message_reports_truncation(void) {
+    char tiny[8];
+    CHECK_EQ_INT(format_call_message(tiny, sizeof tiny, 7, STAGE_ATTEMPTING), -1);
+}
+
+static void test_every_stage_has_a_message(void) {
+    int stage;
+    for (stage = 0; stage < STAGE_COUNT; stage++) {
+        CHECK(STAGE_MESSAGES[stage] != NULL);
+    }
+}
+
 int main(void) {
     test_parse_debate_seconds_accepts_positive_integers();
     test_parse_debate_seconds_rejects_bad_input();
+    test_format_call_message_matches_spec_templates();
+    test_format_call_message_uses_the_given_id();
+    test_format_call_message_reports_truncation();
+    test_every_stage_has_a_message();
     CHECK_REPORT("test_presidential_debate");
 }

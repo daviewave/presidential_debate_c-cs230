@@ -88,8 +88,6 @@ run: $(PROGRAM)
 # Makefile), then a build inside it proves the bundle compiles on its own.
 define DIST_MAKEFILE
 # Flat Makefile for the Gradescope submission: builds presidential_debate here.
-# make predefines CC as cc, so ?= alone would never pick gcc; override only
-# make's own default and leave a CC given on the command line or environment.
 ifeq ($(origin CC),default)
 CC := gcc
 endif
