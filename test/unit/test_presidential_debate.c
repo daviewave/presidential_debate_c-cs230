@@ -141,6 +141,22 @@ static void test_constants_match_the_spec(void) {
     CHECK_EQ_INT(BUSY_RETRY_SECONDS, 1);
 }
 
+static void *finish_immediately(void *vargp) {
+    signal_on(vargp);
+    return NULL;
+}
+
+static void test_cancel_call_tolerates_a_finished_thread(void) {
+    sem_t finished;
+    pthread_t call;
+    CHECK_EQ_INT(sem_init(&finished, 0, 0), 0);
+    CHECK_EQ_INT(pthread_create(&call, NULL, finish_immediately, &finished), 0);
+    wait_on(&finished);
+    cancel_call(call);
+    CHECK_EQ_INT(pthread_join(call, NULL), 0);
+    CHECK_EQ_INT(sem_destroy(&finished), 0);
+}
+
 int main(void) {
     test_parse_debate_seconds_accepts_positive_integers();
     test_parse_debate_seconds_rejects_bad_input();
@@ -154,5 +170,6 @@ int main(void) {
     test_phonecall_takes_unique_ids_and_frees_its_line();
     test_debate_timer_returns_after_the_given_seconds();
     test_constants_match_the_spec();
+    test_cancel_call_tolerates_a_finished_thread();
     CHECK_REPORT("test_presidential_debate");
 }

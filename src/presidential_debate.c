@@ -41,8 +41,8 @@ static const char *const STAGE_MESSAGES[STAGE_COUNT] = {
 static sem_t connected_lock;      /* binary semaphore: the only guard of connected */
 static sem_t operators;           /* counting semaphore: one unit per free operator */
 static sem_t id_lock;             /* binary semaphore: the only guard of next_id */
-static int NUM_OPERATORS = 2;
-static int NUM_LINES = 5;
+static int NUM_OPERATORS = 2;     /* operators on duty (spec value) */
+static int NUM_LINES = 5;         /* phone lines into the call centre (spec value) */
 static int connected = 0;         /* callers currently holding a phone line */
 static int next_id = 0;           /* last caller id handed out; ids run 1..NUM_CALLS */
 
@@ -230,11 +230,22 @@ static void start_calls(pthread_t calls[NUM_CALLS]) {
     }
 }
 
+/*
+ * Request cancellation of one call thread. ESRCH means the thread already
+ * finished on its own (glibc before 2.35 reports that), which is not an error.
+ */
+static void cancel_call(pthread_t call) {
+    int error = pthread_cancel(call);
+    if (error != 0 && error != ESRCH) {
+        die("pthread_cancel phonecall", error);
+    }
+}
+
 /* Cancel every phone-call thread, then join each so none outlives this call. */
 static void end_calls(pthread_t calls[NUM_CALLS]) {
     size_t i;
     for (i = 0; i < NUM_CALLS; i++) {
-        check_error(pthread_cancel(calls[i]), "pthread_cancel phonecall");
+        cancel_call(calls[i]);
     }
     for (i = 0; i < NUM_CALLS; i++) {
         check_error(pthread_join(calls[i], NULL), "pthread_join phonecall");
@@ -249,6 +260,11 @@ static void run_debate(unsigned int seconds) {
     check_error(pthread_join(timer, NULL), "pthread_join timer");
 }
 
+/*
+ * Run the simulation for the debate length given as argv[1].
+ * @return EXIT_SUCCESS after every thread is joined and every semaphore
+ *         destroyed; EXIT_FAILURE with a usage line for a bad argument.
+ */
 int main(int argc, char *argv[]) {
     pthread_t calls[NUM_CALLS];
     unsigned int seconds;
@@ -256,7 +272,9 @@ int main(int argc, char *argv[]) {
         print_usage(argc > 0 ? argv[0] : "presidential_debate");
         return EXIT_FAILURE;
     }
-    check_errno(setvbuf(stdout, NULL, _IOLBF, 0) != 0, "setvbuf");
+    if (setvbuf(stdout, NULL, _IOLBF, 0) != 0) {
+        die("setvbuf", EINVAL);
+    }
     initialize_semaphores();
     start_calls(calls);
     run_debate(seconds);
