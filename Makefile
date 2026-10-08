@@ -88,7 +88,7 @@ run: $(PROGRAM)
 # Makefile), then a build inside it proves the bundle compiles on its own.
 define DIST_MAKEFILE
 # Flat Makefile for the Gradescope submission: builds presidential_debate here.
-ifeq ($(origin CC),default)
+ifeq ($$(origin CC),default)
 CC := gcc
 endif
 CFLAGS ?= -std=c99 -D_POSIX_C_SOURCE=200809L -pthread -Wall -Wextra -O2
@@ -105,11 +105,20 @@ clean:
 .PHONY: all clean
 endef
 
-dist: $(SOURCES) README.txt
+# $(file ...) runs when make expands the recipe, before any command in it, so
+# the generated Makefile is staged in build/ by its own target and copied.
+$(BUILD_DIR):
+	mkdir -p $@
+
+$(BUILD_DIR)/dist.mk: Makefile | $(BUILD_DIR)
+	$(file >$@,$(DIST_MAKEFILE))
+	@echo "generated $@"
+
+dist: $(SOURCES) README.txt $(BUILD_DIR)/dist.mk
 	rm -rf $(DIST_DIR)
 	mkdir -p $(DIST_DIR)
 	cp $(SOURCES) README.txt $(DIST_DIR)/
-	$(file >$(DIST_DIR)/Makefile,$(DIST_MAKEFILE))
+	cp $(BUILD_DIR)/dist.mk $(DIST_DIR)/Makefile
 	$(MAKE) -C $(DIST_DIR)
 
 clean:
