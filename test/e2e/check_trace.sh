@@ -26,8 +26,12 @@ verify_the_trace() {
     awk -v expected="$expected_attempts" -v min_completed="$min_completed" \
         -v max_id="$MAX_ID" -v max_lines="$MAX_LINES_IN_USE" \
         -v max_operators="$MAX_OPERATORS_IN_USE" '
+function complain(message) {
+    print message | "cat 1>&2"
+    close("cat 1>&2")
+}
 function fail(reason) {
-    printf "trace line %d: %s: %s\n", NR, reason, $0 > "/dev/stderr"
+    complain(sprintf("trace line %d: %s: %s", NR, reason, $0))
     failed = 1
     exit 1
 }
@@ -61,11 +65,11 @@ END {
     attempts = count[1] + 0
     completed = count[5] + 0
     if (attempts != expected + 0) {
-        printf "expected %d attempting lines, saw %d\n", expected, attempts > "/dev/stderr"
+        complain(sprintf("expected %d attempting lines, saw %d", expected, attempts))
         exit 1
     }
     if (completed < min_completed + 0) {
-        printf "expected at least %d completed calls, saw %d\n", min_completed, completed > "/dev/stderr"
+        complain(sprintf("expected at least %d completed calls, saw %d", min_completed, completed))
         exit 1
     }
     printf "trace ok: %d lines, %d attempts, %d completed\n", NR, attempts, completed
