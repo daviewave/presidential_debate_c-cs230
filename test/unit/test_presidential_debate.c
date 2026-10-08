@@ -69,6 +69,48 @@ static void test_every_stage_has_a_message(void) {
     }
 }
 
+static void test_semaphores_start_with_spec_values(void) {
+    int value = -1;
+    initialize_semaphores();
+    CHECK_EQ_INT(sem_getvalue(&connected_lock, &value), 0);
+    CHECK_EQ_INT(value, 1);
+    CHECK_EQ_INT(sem_getvalue(&operators, &value), 0);
+    CHECK_EQ_INT(value, NUM_OPERATORS);
+    CHECK_EQ_INT(sem_getvalue(&id_lock, &value), 0);
+    CHECK_EQ_INT(value, 1);
+    destroy_semaphores();
+}
+
+static void test_try_claim_line_respects_num_lines(void) {
+    initialize_semaphores();
+    connected = 0;
+    CHECK(try_claim_line());
+    CHECK_EQ_INT(connected, 1);
+    connected = NUM_LINES - 1;
+    CHECK(try_claim_line());
+    CHECK_EQ_INT(connected, NUM_LINES);
+    CHECK(!try_claim_line());
+    CHECK_EQ_INT(connected, NUM_LINES);
+    release_line();
+    CHECK_EQ_INT(connected, NUM_LINES - 1);
+    connected = 0;
+    destroy_semaphores();
+}
+
+static void test_critical_sections_release_the_lock(void) {
+    int value = -1;
+    initialize_semaphores();
+    connected = NUM_LINES;
+    CHECK(!try_claim_line());
+    CHECK_EQ_INT(sem_getvalue(&connected_lock, &value), 0);
+    CHECK_EQ_INT(value, 1);
+    release_line();
+    CHECK_EQ_INT(sem_getvalue(&connected_lock, &value), 0);
+    CHECK_EQ_INT(value, 1);
+    connected = 0;
+    destroy_semaphores();
+}
+
 int main(void) {
     test_parse_debate_seconds_accepts_positive_integers();
     test_parse_debate_seconds_rejects_bad_input();
@@ -76,5 +118,8 @@ int main(void) {
     test_format_call_message_uses_the_given_id();
     test_format_call_message_reports_truncation();
     test_every_stage_has_a_message();
+    test_semaphores_start_with_spec_values();
+    test_try_claim_line_respects_num_lines();
+    test_critical_sections_release_the_lock();
     CHECK_REPORT("test_presidential_debate");
 }

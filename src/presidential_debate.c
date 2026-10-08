@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,6 +34,13 @@ static const char *const STAGE_MESSAGES[STAGE_COUNT] = {
     "has hung up!"
 };
 
+static sem_t connected_lock;      /* binary semaphore: the only guard of connected */
+static sem_t operators;           /* counting semaphore: one unit per free operator */
+static sem_t id_lock;             /* binary semaphore: the only guard of next_id */
+static int NUM_OPERATORS = 2;
+static int NUM_LINES = 5;
+static int connected = 0;         /* callers currently holding a phone line */
+
 /* Report a failed call on stderr and end the process; error is an errno value. */
 static void die(const char *what, int error) {
     fprintf(stderr, "presidential_debate: %s: %s\n", what, strerror(error));
@@ -51,6 +59,57 @@ static void check_error(int error, const char *what) {
     if (error != 0) {
         die(what, error);
     }
+}
+
+/* sem_init all three semaphores with their starting values. */
+static void initialize_semaphores(void) {
+    check_errno(sem_init(&connected_lock, 0, 1) == -1, "sem_init connected_lock");
+    check_errno(sem_init(&operators, 0, (unsigned int)NUM_OPERATORS) == -1,
+                "sem_init operators");
+    check_errno(sem_init(&id_lock, 0, 1) == -1, "sem_init id_lock");
+}
+
+/* sem_destroy all three semaphores; legal only once no thread can touch them. */
+static void destroy_semaphores(void) {
+    check_errno(sem_destroy(&id_lock) == -1, "sem_destroy id_lock");
+    check_errno(sem_destroy(&operators) == -1, "sem_destroy operators");
+    check_errno(sem_destroy(&connected_lock) == -1, "sem_destroy connected_lock");
+}
+
+/* sem_wait that retries when a signal interrupts it. */
+static void wait_on(sem_t *semaphore) {
+    int result;
+    do {
+        result = sem_wait(semaphore);
+    } while (result == -1 && errno == EINTR);
+    check_errno(result == -1, "sem_wait");
+}
+
+/* sem_post, checked. */
+static void signal_on(sem_t *semaphore) {
+    check_errno(sem_post(semaphore) == -1, "sem_post");
+}
+
+/*
+ * Critical section on connected: take a line if one is free.
+ * @return 1 if this caller now holds a line, 0 if every line is busy.
+ */
+static int try_claim_line(void) {
+    int claimed = 0;
+    wait_on(&connected_lock);
+    if (connected < NUM_LINES) {
+        connected++;
+        claimed = 1;
+    }
+    signal_on(&connected_lock);
+    return claimed;
+}
+
+/* Critical section on connected: give the line back. */
+static void release_line(void) {
+    wait_on(&connected_lock);
+    connected--;
+    signal_on(&connected_lock);
 }
 
 /* Print the usage line on stderr. */
